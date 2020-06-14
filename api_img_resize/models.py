@@ -1,6 +1,6 @@
-import uuid
-import shutil
 import os
+import uuid
+import time
 
 from django.db import models
 from django.core.files import File
@@ -35,8 +35,8 @@ class Image(models.Model):
         verbose_name='Изображение',
     )
     TYPE_IMG = (
-        (1, 'Оригинальное изображение'),
-        (2, 'Масштабируемое изображение')
+        (1, 'Оригинал'),
+        (2, 'Измененное')
     )
     type_img = models.PositiveSmallIntegerField(choices=TYPE_IMG)
     task = models.ForeignKey(
@@ -61,14 +61,8 @@ def post_save_doing_tusk(sender, **kwargs):
 
     Task.objects.filter(id=image_source.task.id).update(status=2)
 
-    post_save.disconnect(post_save_doing_tusk, sender=Image, dispatch_uid='resize_img')
-    # Внимание, не дай бох тут произойдет какаянидь зхрень, то нужно заново зарегать событие пост сайв...
     img_path = image_source.image.path
-    img_path_split = os.path.split(img_path)
-    new_path = os.path.join(img_path_split[0], f'resize_{img_path_split[1]}')
-    shutil.copyfile(img_path, new_path)
-
-    with open(new_path, 'rb') as file_img_resize:
+    with open(img_path, 'rb') as file_img_resize:
         django_file_img_resize = File(file_img_resize)
         resize_image = Image()
         resize_image.image = django_file_img_resize
@@ -76,10 +70,9 @@ def post_save_doing_tusk(sender, **kwargs):
         resize_image.task_id = image_source.task.id
         resize_image.save()
 
-    Task.objects.filter(id=image_source.task.id).update(status=3)
+    print("pre")
+    time.sleep(10)
+    print("post")
 
 
 post_save.connect(post_save_doing_tusk, sender=Image, dispatch_uid='resize_img')
-
-
-# post_save.connect(post_save_dispatcher, sender=Image)
