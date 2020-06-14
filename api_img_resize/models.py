@@ -2,10 +2,12 @@ import os
 import uuid
 import time
 
+import PIL
 from django.db import models
 from django.core.files import File
 from django.dispatch import receiver
 from django.db.models.signals import post_save
+
 
 from .utilities import get_timestamp_path
 
@@ -25,7 +27,12 @@ class Task(models.Model):
     nxt_height = models.PositiveSmallIntegerField()
 
     def __str__(self):
-        return f'{self.id} {self.status}'
+        return f'{self.COMPLETED_TYPE[self.status][1]}, w:{self.nxt_width}, h:{self.nxt_height}'
+
+    def delete(self, *args, **kwargs):
+        for image in self.images.all():
+            image.delete()
+        super().delete(*args, **kwargs)
 
 
 class Image(models.Model):
@@ -35,13 +42,14 @@ class Image(models.Model):
         verbose_name='Изображение',
     )
     TYPE_IMG = (
-        (1, 'Оригинал'),
-        (2, 'Измененное')
+        (0, 'Оригинал'),
+        (1, 'Измененное')
     )
-    type_img = models.PositiveSmallIntegerField(choices=TYPE_IMG)
+    type_img = models.PositiveSmallIntegerField(choices=TYPE_IMG, default=0)
     task = models.ForeignKey(
         'Task',
         on_delete=models.CASCADE,
+        related_name='images',
         verbose_name='Задача')
 
     def __str__(self):
@@ -50,29 +58,81 @@ class Image(models.Model):
 
 @receiver(post_save, sender=Image, dispatch_uid='resize_img')
 def post_save_doing_tusk(sender, **kwargs):
+    """func get image and call resize. Next save new image and type in db"""
     image_source = kwargs.get('instance', False)
     if not image_source:
-        # обновить в таск статус на ошибкую хрен его знает как если ничего нет....
+        # обновить в таск статус на ошибкую хрен его знает как если ничего нет
         raise Exception('Error in kwargs["instance"]')
     type_img = image_source.type_img
 
-    if type_img == 2:
+    if type_img == 1:
         return None
 
-    Task.objects.filter(id=image_source.task.id).update(status=2)
+    cur_task = Task.objects.get(id=image_source.task.id)
+    cur_task.status = 2
+    cur_task.save(update_fields=["status"])
 
-    img_path = image_source.image.path
-    with open(img_path, 'rb') as file_img_resize:
-        django_file_img_resize = File(file_img_resize)
-        resize_image = Image()
-        resize_image.image = django_file_img_resize
-        resize_image.type_img = 2
-        resize_image.task_id = image_source.task.id
-        resize_image.save()
+    input_image_path = image_source.image.path
+    img_path_split = os.path.split(input_image_path)
+    output_image_path = os.path.join(
+        img_path_split[0],
+        f'resize_{img_path_split[1]}'
+    )
+    size = (cur_task.nxt_width, cur_task.nxt_height)
 
-    print("pre")
-    time.sleep(10)
-    print("post")
+    with PIL.Image.open(input_image_path) as original_image:
+        width, height = original_image.size
+        print(f'The original image size is {width} wide x {height} high')
+        # original_image_rgb = original_image.convert('RGB')
+        resized_image = original_image.resize(size, PIL.Image.LANCZOS)
+        resized_image.save(output_image_path)
+        width, height = resized_image.size
+        print(f'The resized image size is {width} wide x {height} high')
+        resized_image.close()
+
+    # resized_image.save(output_image_path)
+
+    with open(output_image_path, 'rb') as f:
+        django_file_img_resize = File(f)
+        resize_image_orm = Image()
+        resize_image_orm.type_img = 1
+        resize_image_orm.task_id = image_source.task.id
+        resize_image_orm.image.save(
+            img_path_split[1],
+            django_file_img_resize,
+            save=True
+        )
+
+    # Имитируем долго выолняемую задачу
+    print('pre')
+    time.sleep(20)
+    print('post')
+    cur_task.status = 3
+    cur_task.save(update_fields=['status'])
 
 
 post_save.connect(post_save_doing_tusk, sender=Image, dispatch_uid='resize_img')
+
+
+def resize_image(input_image_path,
+                 output_image_path,
+                 size):
+    original_image = Image.open(input_image_path)
+    width, height = original_image.size
+    print(f'The original image size is {width} wide x {height} high')
+
+    resized_image = original_image.resize(size)
+    width, height = resized_image.size
+    print(f'The resized image size is {width} wide x {height} high')
+    resized_image.save(output_image_path)
+
+
+@receiver(models.signals.post_delete, sender=Image)
+def auto_delete_file_on_delete(sender, instance, **kwargs):
+    """
+    Deletes file from filesystem
+    when corresponding `MediaFile` object is deleted.
+    """
+    if instance.image:
+        if os.path.isfile(instance.image.path):
+            os.remove(instance.image.path)

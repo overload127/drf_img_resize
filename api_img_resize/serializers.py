@@ -3,19 +3,43 @@ from rest_framework import serializers
 from api_img_resize.models import Task, Image
 
 
-class TaskDetailSerializer(serializers.ModelSerializer):
+class TaskCreateSerializer(serializers.ModelSerializer):
     """Serializer for Task model"""
-    # image = serializers.ImageField(max_length=None, use_url=True)
 
     class Meta:
         model = Task
-        fields = ('id',)
+        fields = ('nxt_width', 'nxt_height')
 
 
-class ImageSerializer(serializers.ModelSerializer):
+class ImageDetailSerializer(serializers.ModelSerializer):
     """Serializer for Image model"""
-    # image = serializers.ImageField(max_length=None, use_url=True)
 
     class Meta:
         model = Image
-        fields = ('source_image', 'nxt_width', 'nxt_height', 'task')
+        fields = ('image', 'task')
+
+
+class TaskDetailSerializer(serializers.ModelSerializer):
+    """Serializer for Task model"""
+
+    class Meta:
+        model = Task
+        fields = ('id', 'status')
+
+
+class ImageSuccesSerializer(serializers.ModelSerializer):
+    """Serializer for Image model"""
+
+    class Meta:
+        model = Image
+        fields = ('image', 'type_img')
+
+
+class TaskAndImageDetailSerializer(serializers.ModelSerializer):
+    """Serializer for Task model"""
+    images = ImageSuccesSerializer(read_only=True, many=True)
+
+    class Meta:
+        model = Task
+        #fields = '__all__'
+        fields = ('id', 'status', 'images')
