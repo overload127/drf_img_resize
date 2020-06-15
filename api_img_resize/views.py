@@ -1,21 +1,22 @@
-from rest_framework import generics
+from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.views import APIView
-from rest_framework import mixins
 from rest_framework.settings import api_settings
-from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.generics import get_object_or_404
 
+from .serializers import TaskCreateSerializer, TaskChaeckializer
 from .models import Task
-from .serializers import TaskCreateSerializer, TaskAndImageDetailSerializer, ImageDetailSerializer, TaskDetailSerializer
-from rest_framework.response import Response
 
 
-class TaskCreateView(generics.GenericAPIView):
-    """Create and send new task id"""
-    serializer_class = TaskCreateSerializer
+class TaskCreateView(APIView):
+    """
+    check completed resize image
+    """
+    serializer = TaskCreateSerializer
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
+        # ,{'context': {'request': self.request,'format': self.format_kwarg,'view': self}}
+        serializer = TaskCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         new_task = serializer.save()
         headers = self.get_success_headers(serializer.data)
@@ -28,21 +29,19 @@ class TaskCreateView(generics.GenericAPIView):
             return {}
 
 
-class ImgSendView(generics.CreateAPIView):
-    """"""
-    serializer_class = ImageDetailSerializer
-
-
-class TaskCheckView(generics.RetrieveAPIView):
-    """check completed resize image"""
-    serializer_class = TaskDetailSerializer
-    queryset = Task.objects.all()
-
-
-class ImageGetView(APIView):
-    """check completed resize image"""
+class TaskCheckView(APIView):
+    """
+    check completed resize image
+    """
 
     def get(self, request, pk):
-        data_task = Task.objects.get(id=pk)#, image__type_img=1)# .values('id', 'status', 'image__image')
-        serializer = TaskAndImageDetailSerializer(data_task)
-        return Response(serializer.data)
+        data_task = get_object_or_404(Task, id=pk)
+        serializer = TaskChaeckializer(data_task)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_200_OK, headers=headers)
+
+    def get_success_headers(self, data):
+        try:
+            return {'Location': str(data[api_settings.URL_FIELD_NAME])}
+        except (TypeError, KeyError):
+            return {}
