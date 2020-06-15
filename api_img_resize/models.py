@@ -7,7 +7,7 @@ from django.db import models
 from django.core.files import File
 from django.dispatch import receiver
 from django.db.models.signals import post_save
-
+from drf_img_resize.celery import app
 
 from .utilities import get_timestamp_path
 
@@ -42,34 +42,56 @@ class Task(models.Model):
             return None
 
         if self.status == 1:
-            self.resize_img()
+            # resize_img.delay(self)
+            cur_task = resize_img2.delay(self.nxt_width, self.nxt_height, self.image.path)
+            cur_task=cur_task
 
-    def resize_img(self):
-        # устанавливаем таску статус обработки
-        # cur_task = Task.objects.get(id=self.task_id)
-        # cur_task.status = 2
-        self.status = 2
-        self.save(update_fields=['status'])
 
-        size = (self.nxt_width, self.nxt_height)
+@app.task
+def resize_img2(nxt_width, nxt_height, image_path):
+    size = (nxt_width, nxt_height)
 
-        # Открываем через PIL наше изображение
-        # И выполняем масштабирование
-        with PIL.Image.open(self.image) as original_image:
-            width, height = original_image.size
-            print(f'The original image size is {width} wide x {height} high')
-            original_image = original_image.resize(size, PIL.Image.LANCZOS)
-            width, height = original_image.size
-            print(f'The resized image size is {width} wide x {height} high')
-            original_image.save(self.image.path)
-            original_image.close()
+    # Открываем через PIL наше изображение
+    # И выполняем масштабирование
+    with PIL.Image.open(image_path) as original_image:
+        width, height = original_image.size
+        print(f'The original image size is {width} wide x {height} high')
+        original_image = original_image.resize(size, PIL.Image.LANCZOS)
+        width, height = original_image.size
+        print(f'The resized image size is {width} wide x {height} high')
+        original_image.save(image_path)
+        original_image.close()
 
-        print('pre')
-        time.sleep(20)
-        print('post')
-        # устанавливаем таску статус обработки
-        self.status = 3
-        self.save(update_fields=['status'])
+    print('pre')
+    time.sleep(2)
+    print('post')
+
+
+#@app.task
+def resize_img(cur_task):
+    # устанавливаем таску статус обработки
+    cur_task.status = 2
+    cur_task.save(update_fields=['status'])
+
+    size = (cur_task.nxt_width, cur_task.nxt_height)
+
+    # Открываем через PIL наше изображение
+    # И выполняем масштабирование
+    with PIL.Image.open(cur_task.image) as original_image:
+        width, height = original_image.size
+        print(f'The original image size is {width} wide x {height} high')
+        original_image = original_image.resize(size, PIL.Image.LANCZOS)
+        width, height = original_image.size
+        print(f'The resized image size is {width} wide x {height} high')
+        original_image.save(cur_task.image.path)
+        original_image.close()
+
+    print('pre')
+    time.sleep(20)
+    print('post')
+    # устанавливаем таску статус обработки
+    cur_task.status = 3
+    cur_task.save(update_fields=['status'])
 
 
 @receiver(models.signals.post_delete, sender=Task)
