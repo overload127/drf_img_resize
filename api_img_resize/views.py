@@ -1,4 +1,5 @@
 import os
+import redis
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -11,6 +12,13 @@ from .serializers import TaskCreateSerializer
 from .tasks import resize_img, app
 from .utilities import get_timestamp_path
 
+
+# Connect to our Redis instance
+redis_instance = redis.StrictRedis(
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    db=1
+)
 
 class TaskCreateView(APIView):
     """
@@ -26,7 +34,8 @@ class TaskCreateView(APIView):
         serializer = TaskCreateSerializer(data=request.data)
         if not serializer.is_valid():
             context = serializer.errors
-            context['is_error'] = True
+            context['description'] = 'fail serializer'
+            context['status'] = 'FAIL'
             return Response(context, status=status.HTTP_400_BAD_REQUEST)
 
         media_root = settings.IMAGES_ROOT
@@ -35,9 +44,9 @@ class TaskCreateView(APIView):
 
         if os.path.isfile(media_root):
             # папка не папка а файл
-            context['is_error'] = True
-            context['description'] = 'Не могу сохранить файл.' \
-                'Папка является типом файл'
+            context['status'] = 'FAIL'
+            context['description'] = 'Can not save the file.' \
+                'Folder "images" is a file type'
             return Response(context, status=status.HTTP_400_BAD_REQUEST)
 
         image_name = get_timestamp_path(
@@ -54,10 +63,14 @@ class TaskCreateView(APIView):
             image_path,
             image_name
         )
+        redis_instance.setex(
+            str(task.id),
+            settings.REDIS_STORAGE_TIME,
+            1
+        )
 
-        context['is_error'] = False
-        context['id'] = task.id
-        context['status'] = task.status
+        context['status'] = 'SUCCESS'
+        context['task_id'] = task.id
         return Response(context, status=status.HTTP_201_CREATED)
 
     def get_success_headers(self, data):
@@ -76,33 +89,37 @@ class TaskCheckView(APIView):
         """
         return status resizing
         """
+        if not redis_instance.exists(task_id):
+            context = dict()
+            context['status'] = 'FAIL'
+            context['description'] = 'Task not exist'
+            return Response(context, status=status.HTTP_200_OK)
+
         task = AsyncResult(task_id, app=app)
         task_status = task.state
 
         context = dict()
-        context['is_error'] = False
-        context['task_status'] = task_status
+        context['status'] = 'SUCCESS'
         context['task_id'] = task_id
+        context['task_status'] = task_status
 
         if task_status == 'PENDING':
-            context['image'] = None
             context['progress'] = 0
         elif task_status == 'SUCCESS':
             url_image = task.get()
             if not url_image:
-                context['is_error'] = True
+                context['status'] = 'FAIL'
+                context['description'] = 'do not have url image',
 
             context['image'] = url_image
             context['progress'] = 100
         elif task_status == 'PROGRESS':
-            context['image'] = None
             context['progress'] = task.result.get('progress', None)
         else:
-            context['is_error'] = True
-            context['image'] = None
-            context['progress'] = None
+            context['status'] = 'FAIL'
+            context['description'] = 'Unknown error'
+            context['task_status'] = task_status
 
-        # А что если нет такой таски?
         return Response(context, status=status.HTTP_200_OK)
 
 
@@ -115,17 +132,25 @@ class TaskDeleteView(APIView):
         """
         delete task
         """
+        if not redis_instance.exists(task_id):
+            context = dict()
+            context['status'] = 'FAIL'
+            context['description'] = 'Task not exist'
+            return Response(context, status=status.HTTP_200_OK)
+
+        redis_instance.delete(task_id)
+
         task = AsyncResult(task_id, app=app)
         task_status = task.state
 
         context = dict()
-        context['is_error'] = False
-        context['task_status'] = task_status
-        context['task_id'] = task_id
+        context['status'] = 'SUCCESS'
 
         if task_status == 'SUCCESS':
             task.forget()
         else:
-            context['is_error'] = True
+            context['status'] = 'FAIL'
+            context['description'] = 'Unknown error'
+            context['task_status'] = task_status
 
         return Response(context, status=status.HTTP_200_OK)

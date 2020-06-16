@@ -21,7 +21,7 @@ def resize_img(self, nxt_width, nxt_height, image_path, image_name):
             width, height = original_image.size
             print(f'The resized image size is {width} wide x {height} high')
             original_image.save(image_path)
-            image_url = settings.MEDIA_URL + image_name
+            image_url = settings.IMAGES_URL + image_name
             original_image.close()
     except:
         # в данный момент был случай, когда Image.jpg был Png
