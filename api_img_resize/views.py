@@ -1,26 +1,61 @@
+import os
+
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.settings import api_settings
 from rest_framework.views import APIView
-from rest_framework.generics import get_object_or_404
 
-from .serializers import TaskCreateSerializer, TaskChaeckializer
-from .models import Task
+from celery.result import AsyncResult
+
+from drf_img_resize import settings
+from .serializers import TaskCreateSerializer
+from .tasks import resize_img, app
+from .utilities import get_timestamp_path
 
 
 class TaskCreateView(APIView):
     """
-    check completed resize image
+    create task and take width height and image
     """
     serializer = TaskCreateSerializer
 
     def post(self, request, *args, **kwargs):
-        # ,{'context': {'request': self.request,'format': self.format_kwarg,'view': self}}
+        context = dict()
         serializer = TaskCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        new_task = serializer.save()
-        headers = self.get_success_headers(serializer.data)
-        return Response({'id': new_task.id}, status=status.HTTP_201_CREATED, headers=headers)
+        if not serializer.is_valid():
+            context = serializer.errors
+            context['is_error'] = True
+            return Response(context, status=status.HTTP_400_BAD_REQUEST)
+
+        media_root = settings.IMAGES_ROOT
+        if not os.path.exists(media_root):
+            os.mkdir(media_root)
+
+        if os.path.isfile(media_root):
+            # папка не папка а файл
+            context['is_error'] = True
+            context['description'] = 'Не могу сохранить файл.' \
+                'Папка является типом файл'
+            return Response(context, status=status.HTTP_400_BAD_REQUEST)
+
+        image_name = get_timestamp_path(
+            serializer.validated_data['image'].name)
+        image_path = os.path.join(media_root, image_name)
+        with open(image_path, 'wb+') as fp:
+            for chunk in request.FILES['image']:
+                fp.write(chunk)
+
+        task = resize_img.delay(
+            serializer.data['nxt_width'],
+            serializer.data['nxt_height'],
+            image_path,
+            image_name
+        )
+
+        context['is_error'] = False
+        context['id'] = task.id
+        context['status'] = task.status
+        return Response(context, status=status.HTTP_201_CREATED)
 
     def get_success_headers(self, data):
         try:
@@ -34,14 +69,17 @@ class TaskCheckView(APIView):
     check completed resize image
     """
 
-    def get(self, request, pk):
-        data_task = get_object_or_404(Task, id=pk)
-        serializer = TaskChaeckializer(data_task)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_200_OK, headers=headers)
+    def get(self, request, task_id):
+        """
+        return status resizing
+        """
+        task = AsyncResult(task_id, app=app)
+        context = dict()
+        context['is_error'] = False
+        context['task_status'] = task.status
+        context['task_id'] = task.id
 
-    def get_success_headers(self, data):
-        try:
-            return {'Location': str(data[api_settings.URL_FIELD_NAME])}
-        except (TypeError, KeyError):
-            return {}
+        if task.state == 'SUCCESS':
+            context['results'] = task.get()
+
+        return Response(context, status=status.HTTP_200_OK)

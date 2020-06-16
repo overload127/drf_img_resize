@@ -134,17 +134,16 @@ STATIC_URL = '/static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+IMAGES_URL = '/media/images/'
+IMAGES_ROOT = os.path.join(MEDIA_ROOT, 'images')
+
 # REDIS related settings
 REDIS_HOST = '192.168.1.147'
 REDIS_PORT = '6379'
 REBBIT_HOST = '192.168.1.147'
 REBBIT_PORT = '5672'
-#RABBIT_LOGIN = 'test'
-#RABBIT_PASS = 'test'
-# CELERY_BROKER_URL = 'amqp://' + RABBIT_LOGIN + ':' + RABBIT_PASS + '@' + REBBIT_HOST + ':' + REBBIT_PORT
 CELERY_BROKER_URL = 'redis://' + REDIS_HOST + ':' + REDIS_PORT + '/0'
 CELERY_BROKER_TRANSPORT_OPTIONS = {'visibility_timeout': 3600}
-# CELERY_RESULT_BACKEND = 'amqp://' + RABBIT_LOGIN + ':' + RABBIT_PASS + '@' + REBBIT_HOST + ':' + REBBIT_PORT
 CELERY_RESULT_BACKEND = 'redis://' + REDIS_HOST + ':' + REDIS_PORT + '/0'
 CELERY_ACCESS_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'

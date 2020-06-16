@@ -1,7 +1,9 @@
 import os
-from celery import Celery
-from celery.schedules import crontab
 
+from celery import Celery
+
+# for run celery on windows 10
+# celery -A drf_img_resize worker -l info -P eventlet
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'drf_img_resize.settings')
 
