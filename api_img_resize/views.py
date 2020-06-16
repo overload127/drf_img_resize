@@ -6,7 +6,6 @@ from rest_framework.settings import api_settings
 from rest_framework.views import APIView
 
 from celery.result import AsyncResult
-
 from drf_img_resize import settings
 from .serializers import TaskCreateSerializer
 from .tasks import resize_img, app
@@ -20,6 +19,9 @@ class TaskCreateView(APIView):
     serializer = TaskCreateSerializer
 
     def post(self, request, *args, **kwargs):
+        """
+        create task and take width height and image
+        """
         context = dict()
         serializer = TaskCreateSerializer(data=request.data)
         if not serializer.is_valid():
@@ -45,9 +47,10 @@ class TaskCreateView(APIView):
             for chunk in request.FILES['image']:
                 fp.write(chunk)
 
+        # run celery task
         task = resize_img.delay(
-            serializer.data['nxt_width'],
-            serializer.data['nxt_height'],
+            serializer.data['width'],
+            serializer.data['height'],
             image_path,
             image_name
         )
@@ -74,12 +77,55 @@ class TaskCheckView(APIView):
         return status resizing
         """
         task = AsyncResult(task_id, app=app)
+        task_status = task.state
+
         context = dict()
         context['is_error'] = False
-        context['task_status'] = task.status
-        context['task_id'] = task.id
+        context['task_status'] = task_status
+        context['task_id'] = task_id
 
-        if task.state == 'SUCCESS':
-            context['results'] = task.get()
+        if task_status == 'PENDING':
+            context['image'] = None
+            context['progress'] = 0
+        elif task_status == 'SUCCESS':
+            url_image = task.get()
+            if not url_image:
+                context['is_error'] = True
+
+            context['image'] = url_image
+            context['progress'] = 100
+        elif task_status == 'PROGRESS':
+            context['image'] = None
+            context['progress'] = task.result.get('progress', None)
+        else:
+            context['is_error'] = True
+            context['image'] = None
+            context['progress'] = None
+
+        # А что если нет такой таски?
+        return Response(context, status=status.HTTP_200_OK)
+
+
+class TaskDeleteView(APIView):
+    """
+    delete task
+    """
+
+    def get(self, request, task_id):
+        """
+        delete task
+        """
+        task = AsyncResult(task_id, app=app)
+        task_status = task.state
+
+        context = dict()
+        context['is_error'] = False
+        context['task_status'] = task_status
+        context['task_id'] = task_id
+
+        if task_status == 'SUCCESS':
+            task.forget()
+        else:
+            context['is_error'] = True
 
         return Response(context, status=status.HTTP_200_OK)

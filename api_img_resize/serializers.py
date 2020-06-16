@@ -10,4 +10,4 @@ class TaskCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Task
-        fields = ('nxt_width', 'nxt_height', 'image')
+        fields = ('width', 'height', 'image')
