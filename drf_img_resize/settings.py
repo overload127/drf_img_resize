@@ -186,3 +186,6 @@ LOGGING = {
         },
     },
 }
+
+# for unit test data
+TEST_DATA_ROOT = os.path.join(BASE_DIR, 'test_data')

@@ -17,18 +17,18 @@ class Task(models.Model):
         validators=[
             validate_image_extension,
             validate_image_size,
-            validator_image_dpi
+            validator_image_dpi,
         ]
     )
     width = models.PositiveSmallIntegerField(
         verbose_name='Ширина',
         validators=[
-            validate_number_value
+            validate_number_value,
         ])
     height = models.PositiveSmallIntegerField(
         verbose_name='Высота',
         validators=[
-            validate_number_value
+            validate_number_value,
         ])
 
     class Meta:
