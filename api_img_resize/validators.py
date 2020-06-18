@@ -44,7 +44,8 @@ def validate_image_extension(image):
 
     valid_extensions = [('.jpg', 'JPEG'), ('.png', 'PNG')]
     if not (ext.lower(), type_content) in valid_extensions:
-        raise ValidationError(f'Unsupported file[{type_content}] extension[{ext}]. ')
+        raise ValidationError(
+            f'Unsupported file[{type_content}] extension[{ext}]. ')
 
 
 def validate_number_value(value):

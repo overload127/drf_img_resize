@@ -1,5 +1,6 @@
 import os
 import redis
+import logging
 
 from rest_framework.response import Response
 from rest_framework import status
@@ -20,6 +21,11 @@ redis_instance = redis.StrictRedis(
     db=1
 )
 
+# Get an instance of a logger
+logger = logging.getLogger(__name__)
+logger.info(f'start sait')
+
+
 class TaskCreateView(APIView):
     """
     create task and take width height and image
@@ -33,25 +39,30 @@ class TaskCreateView(APIView):
         context = dict()
         serializer = TaskCreateSerializer(data=request.data)
         if not serializer.is_valid():
+            # не проходят русские имена
             context = serializer.errors
             context['description'] = 'fail serializer'
             context['status'] = 'FAIL'
+
+            param_list = [f'{key}={value}' for key, value in context.items()]
+            log_string = ' '.join(param_list)
+            logger.warning(f'fail serializer: {log_string}')
+
             return Response(context, status=status.HTTP_400_BAD_REQUEST)
 
-        media_root = settings.IMAGES_ROOT
-        if not os.path.exists(media_root):
-            os.mkdir(media_root)
+        image_root = settings.IMAGES_ROOT
+        if not os.path.exists(image_root):
+            logger.warning(f'Create folder for image: image_root={image_root}')
+            os.mkdir(image_root)
 
-        if os.path.isfile(media_root):
+        if os.path.isfile(image_root):
             # папка не папка а файл
-            context['status'] = 'FAIL'
-            context['description'] = 'Can not save the file.' \
-                'Folder "images" is a file type'
-            return Response(context, status=status.HTTP_400_BAD_REQUEST)
+            logger.critical(f'Bad folder for image: image_root={image_root}')
+            raise(f'Bad folder for image: image_root={image_root}')
 
         image_name = get_timestamp_path(
             serializer.validated_data['image'].name)
-        image_path = os.path.join(media_root, image_name)
+        image_path = os.path.join(image_root, image_name)
         with open(image_path, 'wb+') as fp:
             for chunk in request.FILES['image']:
                 fp.write(chunk)
@@ -71,6 +82,11 @@ class TaskCreateView(APIView):
 
         context['status'] = 'SUCCESS'
         context['task_id'] = task.id
+
+        param_list = [f'{key}={value}' for key, value in context.items()]
+        log_string = ' '.join(param_list)
+        logger.info(f'Create task: {log_string}')
+
         return Response(context, status=status.HTTP_201_CREATED)
 
     def get_success_headers(self, data):
@@ -93,6 +109,11 @@ class TaskCheckView(APIView):
             context = dict()
             context['status'] = 'FAIL'
             context['description'] = 'Task not exist'
+
+            param_list = [f'{key}={value}' for key, value in context.items()]
+            log_string = ' '.join(param_list)
+            logger.warning(f'Task not exist: {log_string}')
+
             return Response(context, status=status.HTTP_200_OK)
 
         task = AsyncResult(task_id, app=app)
@@ -109,7 +130,7 @@ class TaskCheckView(APIView):
             url_image = task.get()
             if not url_image:
                 context['status'] = 'FAIL'
-                context['description'] = 'do not have url image',
+                context['description'] = 'missing url image',
 
             context['image'] = url_image
             context['progress'] = 100
@@ -119,6 +140,15 @@ class TaskCheckView(APIView):
             context['status'] = 'FAIL'
             context['description'] = 'Unknown error'
             context['task_status'] = task_status
+
+        if context['status'] == 'FAIL':
+            param_list = [f'{key}={value}' for key, value in context.items()]
+            log_string = ' '.join(param_list)
+            logger.error(f'{context["description"]}: {log_string}')
+        else:
+            param_list = [f'{key}={value}' for key, value in context.items()]
+            log_string = ' '.join(param_list)
+            logger.info(f'Check task: {log_string}')
 
         return Response(context, status=status.HTTP_200_OK)
 
@@ -136,6 +166,11 @@ class TaskDeleteView(APIView):
             context = dict()
             context['status'] = 'FAIL'
             context['description'] = 'Task not exist'
+
+            param_list = [f'{key}={value}' for key, value in context.items()]
+            log_string = ' '.join(param_list)
+            logger.warning(f'Task not exist: {log_string}')
+
             return Response(context, status=status.HTTP_200_OK)
 
         redis_instance.delete(task_id)
@@ -148,9 +183,17 @@ class TaskDeleteView(APIView):
 
         if task_status == 'SUCCESS':
             task.forget()
+
+            param_list = [f'{key}={value}' for key, value in context.items()]
+            log_string = ' '.join(param_list)
+            logger.info(f'Task was delete: {log_string}')
         else:
             context['status'] = 'FAIL'
             context['description'] = 'Unknown error'
             context['task_status'] = task_status
+
+            param_list = [f'{key}={value}' for key, value in context.items()]
+            log_string = ' '.join(param_list)
+            logger.error(f'{context["description"]}: {log_string}')
 
         return Response(context, status=status.HTTP_200_OK)

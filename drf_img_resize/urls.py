@@ -21,7 +21,9 @@ from django.conf import settings
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/v1/resize_img/', include('api_img_resize.urls')),
+    path(
+        'api/v1/resize_img/',
+        include('api_img_resize.urls', namespace='api_resize_task')),
 ]
 
 if settings.DEBUG:

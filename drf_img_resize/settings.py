@@ -137,7 +137,7 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 IMAGES_URL = '/media/images/'
 IMAGES_ROOT = os.path.join(MEDIA_ROOT, 'images')
 
-# REDIS related settings
+# REDIS and Celery settings
 REDIS_HOST = '192.168.1.147'
 REDIS_PORT = '6379'
 REBBIT_HOST = '192.168.1.147'
@@ -149,5 +149,40 @@ CELERY_ACCESS_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 
-# 24h
+# 24h for save uuid task
 REDIS_STORAGE_TIME = 60 * 60 * 24
+
+# logging setting
+LOGGING_ROOT = os.path.join(BASE_DIR, 'logging')
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {
+            'format': '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            'datefmt': '%d/%b/%Y %H:%M:%S',
+        },
+    },
+    'handlers': {
+        'file2': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'filename': os.path.join(LOGGING_ROOT, 'api_img_resize.log'),
+            'formatter': 'simple',
+            'when': 'D',
+            'interval': 1,
+            'backupCount': 0,
+            'encoding': 'UTF-8',
+            'delay': False,
+            'utc': False,
+        },
+    },
+    'loggers': {
+        'api_img_resize.views': {
+            'handlers': ['file2'],
+            'level': 'DEBUG',
+            'propagate': True,
+        },
+    },
+}
