@@ -4,7 +4,6 @@ import logging
 
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.settings import api_settings
 from rest_framework.views import APIView
 from rest_framework.generics import GenericAPIView
 
@@ -89,12 +88,6 @@ class TaskCreateView(GenericAPIView):
 
         return Response(context, status=status.HTTP_201_CREATED)
 
-    def get_success_headers(self, data):
-        try:
-            return {'Location': str(data[api_settings.URL_FIELD_NAME])}
-        except (TypeError, KeyError):
-            return {}
-
 
 class TaskCheckView(APIView):
     """
@@ -114,7 +107,7 @@ class TaskCheckView(APIView):
             log_string = ' '.join(param_list)
             logger.warning(f'Task not exist: {log_string}')
 
-            return Response(context, status=status.HTTP_200_OK)
+            return Response(context, status=status.HTTP_400_BAD_REQUEST)
 
         task = AsyncResult(task_id, app=app)
         task_status = task.state
@@ -123,6 +116,7 @@ class TaskCheckView(APIView):
         context['status'] = 'SUCCESS'
         context['task_id'] = task_id
         context['task_status'] = task_status
+        cur_status = status.HTTP_200_OK
 
         if task_status == 'PENDING':
             context['progress'] = 0
@@ -131,6 +125,7 @@ class TaskCheckView(APIView):
             if not url_image:
                 context['status'] = 'FAIL'
                 context['description'] = 'missing url image',
+                cur_status = status.HTTP_500_INTERNAL_SERVER_ERROR
 
             context['image'] = url_image
             context['progress'] = 100
@@ -140,6 +135,7 @@ class TaskCheckView(APIView):
             context['status'] = 'FAIL'
             context['description'] = 'Unknown error'
             context['task_status'] = task_status
+            cur_status = status.HTTP_500_INTERNAL_SERVER_ERROR
 
         if context['status'] == 'FAIL':
             param_list = [f'{key}={value}' for key, value in context.items()]
@@ -150,7 +146,7 @@ class TaskCheckView(APIView):
             log_string = ' '.join(param_list)
             logger.info(f'Check task: {log_string}')
 
-        return Response(context, status=status.HTTP_200_OK)
+        return Response(context, status=cur_status)
 
 
 class TaskDeleteView(APIView):
@@ -171,7 +167,7 @@ class TaskDeleteView(APIView):
             log_string = ' '.join(param_list)
             logger.warning(f'Task not exist: {log_string}')
 
-            return Response(context, status=status.HTTP_200_OK)
+            return Response(context, status=status.HTTP_400_BAD_REQUEST)
 
         redis_instance.delete(task_id)
 
