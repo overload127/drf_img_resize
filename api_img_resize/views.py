@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.settings import api_settings
 from rest_framework.views import APIView
+from rest_framework.generics import GenericAPIView
 
 from celery.result import AsyncResult
 from drf_img_resize import settings
@@ -26,11 +27,11 @@ logger = logging.getLogger(__name__)
 logger.info(f'start sait')
 
 
-class TaskCreateView(APIView):
+class TaskCreateView(GenericAPIView):
     """
-    create task and take width height and image
+    Request handler for 'task/create/'
     """
-    serializer = TaskCreateSerializer
+    serializer_class = TaskCreateSerializer
 
     def post(self, request, *args, **kwargs):
         """
@@ -39,7 +40,6 @@ class TaskCreateView(APIView):
         context = dict()
         serializer = TaskCreateSerializer(data=request.data)
         if not serializer.is_valid():
-            # не проходят русские имена
             context = serializer.errors
             context['description'] = 'fail serializer'
             context['status'] = 'FAIL'
