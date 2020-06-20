@@ -17,3 +17,9 @@ coverage run --source='.' manage.py test api_img_resize
 
 and check coverage reports
 coverage report
+
+delete all test stats
+coverage erase
+
+show test stats in html
+coverage html

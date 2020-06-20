@@ -136,7 +136,7 @@ class TaskDeleteTestCase(APITestCase):
         self.task_id = response.data['task_id']
 
     def test_taskdelete(self):
-        time.sleep(10)
+        time.sleep(1)
         url = reverse('api_resize_task:task_delete', args=(self.task_id,))
         data = {}
         response = self.client.get(url, data, format='multipart')
