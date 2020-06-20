@@ -3,6 +3,7 @@ asgiref==3.2.10
 billiard==3.6.3.0
 celery==4.4.5
 Django==3.0.7
+django-cors-headers==3.4.0
 djangorestframework==3.11.0
 dnspython==1.16.0
 eventlet==0.25.2
