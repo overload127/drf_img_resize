@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     # other apps
+    'corsheaders',
     'rest_framework',
     # my apps
     'api_img_resize.apps.ApiImgResizeConfig',
@@ -51,6 +52,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -128,9 +130,6 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 
-# drf settings
-# CORS_ORIGIN_ALLOW_ALL = True
-
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
@@ -140,8 +139,6 @@ IMAGES_ROOT = os.path.join(MEDIA_ROOT, 'images')
 # REDIS and Celery settings
 REDIS_HOST = '192.168.1.147'
 REDIS_PORT = '6379'
-REBBIT_HOST = '192.168.1.147'
-REBBIT_PORT = '5672'
 CELERY_BROKER_URL = 'redis://' + REDIS_HOST + ':' + REDIS_PORT + '/0'
 CELERY_BROKER_TRANSPORT_OPTIONS = {'visibility_timeout': 3600}
 CELERY_RESULT_BACKEND = 'redis://' + REDIS_HOST + ':' + REDIS_PORT + '/0'
@@ -152,6 +149,15 @@ CELERY_TIMEZONE = 'Europe/Moscow'
 
 # 24h for save uuid task
 REDIS_STORAGE_TIME = 60 * 60 * 24
+
+# corsheader settings
+CORS_ORIGIN_ALLOW_ALL = False
+
+CORS_ORIGIN_WHITELIST = [
+    'http://192.168.1.103:8000',
+    'redis://' + REDIS_HOST + ':' + REDIS_PORT,
+    'http://localhost:8000',
+]
 
 # logging setting
 LOGGING_ROOT = os.path.join(BASE_DIR, 'logging')
@@ -166,7 +172,7 @@ LOGGING = {
         },
     },
     'handlers': {
-        'file2': {
+        'file': {
             'level': 'DEBUG',
             'class': 'logging.handlers.TimedRotatingFileHandler',
             'filename': os.path.join(LOGGING_ROOT, 'api_img_resize.log'),
@@ -181,7 +187,7 @@ LOGGING = {
     },
     'loggers': {
         'api_img_resize.views': {
-            'handlers': ['file2'],
+            'handlers': ['file'],
             'level': 'DEBUG',
             'propagate': True,
         },
