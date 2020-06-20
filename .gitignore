@@ -141,3 +141,5 @@ media
 migrations
 
 logging/
+
+celerybeat*
