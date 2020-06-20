@@ -15,6 +15,6 @@ app.conf.beat_schedule = {
     # Executes at sunset in Melbourne
     'add-4:00': {
         'task': 'api_img_resize.tasks.cleanup_media_image',
-        'schedule': crontab(hour=0, minute=55),
+        'schedule': crontab(hour=4, minute=5),
     },
 }

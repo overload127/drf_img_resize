@@ -175,14 +175,15 @@ class TaskDeleteView(APIView):
         task_status = task.state
 
         context = dict()
-        context['status'] = 'SUCCESS'
 
         if task_status == 'SUCCESS':
+            context['status'] = 'SUCCESS'
             task.forget()
 
             param_list = [f'{key}={value}' for key, value in context.items()]
             log_string = ' '.join(param_list)
             logger.info(f'Task was delete: {log_string}')
+            cur_status = status.HTTP_200_OK
         else:
             context['status'] = 'FAIL'
             context['description'] = 'Unknown error'
@@ -191,5 +192,6 @@ class TaskDeleteView(APIView):
             param_list = [f'{key}={value}' for key, value in context.items()]
             log_string = ' '.join(param_list)
             logger.error(f'{context["description"]}: {log_string}')
+            cur_status = status.HTTP_400_BAD_REQUEST
 
-        return Response(context, status=status.HTTP_200_OK)
+        return Response(context, status=cur_status)

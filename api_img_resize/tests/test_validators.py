@@ -53,7 +53,7 @@ class TestValidateMethods(unittest.TestCase):
                     'validator_image_dpi() raised Exception unexpectedly!'
                 )
 
-    def test_validator_image_dpi_width_bad(self):
+    def test_validator_image_dpi_width_max_bad(self):
         with PIL.Image.open(self.image_path) as original_image:
             old_size = original_image.size
 
@@ -72,7 +72,7 @@ class TestValidateMethods(unittest.TestCase):
 
         resize_img.apply(args=(*old_size, self.image_path, self.name_image))
 
-    def test_validator_image_dpi_height_bad(self):
+    def test_validator_image_dpi_height_max_bad(self):
         with PIL.Image.open(self.image_path) as original_image:
             old_size = original_image.size
 

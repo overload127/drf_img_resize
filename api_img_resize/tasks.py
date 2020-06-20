@@ -15,7 +15,7 @@ logger = get_task_logger(__name__)
 @app.task(bind=True, task_track_started=True)
 def resize_img(self, nxt_width, nxt_height, image_path, image_name):
     """
-    Resize image in celery task
+    Resize image in celery taskage_p
     """
     size = (nxt_width, nxt_height)
     self.update_state(state='PROGRESS', meta={'progress': 20})
@@ -35,6 +35,7 @@ def resize_img(self, nxt_width, nxt_height, image_path, image_name):
             original_image.close()
 
             logger.info(f'Resize image success: {image_url}')
+
     except Exception as err:
         image_url = None
 
@@ -53,7 +54,9 @@ def resize_img(self, nxt_width, nxt_height, image_path, image_name):
 
 @app.task(bind=True)
 def cleanup_media_image(self):
-    print('================== START TASK ==================')
+    """
+    Deleted old image
+    """
     all_file = os.listdir(path=settings.IMAGES_ROOT)
     time_now = dt.datetime.now()
     for cur_file in all_file:
